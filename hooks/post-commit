@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# Global post-commit hook for automated code reviews using ClaudeReview
+# This hook is triggered after every git commit in any repository
+
+# Get repository path and latest commit hash
+REPO_PATH=$(git rev-parse --show-toplevel 2>/dev/null)
+COMMIT_HASH=$(git rev-parse HEAD 2>/dev/null)
+
+# Verify we're in a git repository
+if [ -z "$REPO_PATH" ] || [ -z "$COMMIT_HASH" ]; then
+    exit 0
+fi
+
+# Path to ClaudeReview directory (update this to your actual path)
+CLAUDE_REVIEW_DIR="$HOME/dev/test-code-review/ClaudeReview"
+
+# Check if ClaudeReview exists
+if [ ! -d "$CLAUDE_REVIEW_DIR" ]; then
+    echo "Warning: ClaudeReview not found at $CLAUDE_REVIEW_DIR"
+    exit 0
+fi
+
+# Load environment variables
+if [ -f "$CLAUDE_REVIEW_DIR/.env" ]; then
+    export $(cat "$CLAUDE_REVIEW_DIR/.env" | grep -v '^#' | xargs)
+fi
+
+# Run review in background to avoid blocking the commit
+(
+    cd "$CLAUDE_REVIEW_DIR"
+    node src/index.js "$REPO_PATH" "$COMMIT_HASH" > /dev/null 2>&1
+) &
+
+# Exit successfully so commit completes
+exit 0

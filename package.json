@@ -1,0 +1,38 @@
+{
+  "name": "claude-review",
+  "version": "1.0.0",
+  "description": "Automated AI code reviews for every git commit, powered by Claude Sonnet 4.5",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "review": "node src/index.js"
+  },
+  "keywords": [
+    "code-review",
+    "git",
+    "git-hooks",
+    "claude",
+    "ai",
+    "static-analysis",
+    "security",
+    "code-quality",
+    "anthropic",
+    "automation"
+  ],
+  "author": "Solaris Partners",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/solaris-partners/ClaudeReview.git"
+  },
+  "bugs": {
+    "url": "https://github.com/solaris-partners/ClaudeReview/issues"
+  },
+  "homepage": "https://github.com/solaris-partners/ClaudeReview#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1"
+  }
+}
