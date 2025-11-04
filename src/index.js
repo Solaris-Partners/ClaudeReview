@@ -4,14 +4,18 @@ import Anthropic from '@anthropic-ai/sdk';
 import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import os from 'os';
 
 // Configuration
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const REVIEW_DIR = path.join(process.env.HOME, '.code-reviews');
+
+/**
+ * Escape shell argument for safe command execution
+ */
+function escapeShellArg(arg) {
+  return `'${arg.replace(/'/g, "'\\''")}'`;
+}
 
 // Ensure review directory exists
 if (!fs.existsSync(REVIEW_DIR)) {
@@ -23,7 +27,7 @@ if (!fs.existsSync(REVIEW_DIR)) {
  */
 function getCommitDiff(commitHash) {
   try {
-    return execSync(`git show ${commitHash}`, { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 });
+    return execSync(`git show ${escapeShellArg(commitHash)}`, { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 });
   } catch (error) {
     console.error('Error getting commit diff:', error.message);
     return null;
@@ -35,10 +39,11 @@ function getCommitDiff(commitHash) {
  */
 function getCommitMetadata(commitHash) {
   try {
-    const message = execSync(`git log -1 --pretty=format:"%s" ${commitHash}`, { encoding: 'utf-8' });
-    const author = execSync(`git log -1 --pretty=format:"%an" ${commitHash}`, { encoding: 'utf-8' });
-    const date = execSync(`git log -1 --pretty=format:"%ad" ${commitHash}`, { encoding: 'utf-8' });
-    const stats = execSync(`git show ${commitHash} --stat`, { encoding: 'utf-8' });
+    const escapedHash = escapeShellArg(commitHash);
+    const message = execSync(`git log -1 --pretty=format:"%s" ${escapedHash}`, { encoding: 'utf-8' });
+    const author = execSync(`git log -1 --pretty=format:"%an" ${escapedHash}`, { encoding: 'utf-8' });
+    const date = execSync(`git log -1 --pretty=format:"%ad" ${escapedHash}`, { encoding: 'utf-8' });
+    const stats = execSync(`git show ${escapedHash} --stat`, { encoding: 'utf-8' });
 
     return { message, author, date, stats };
   } catch (error) {
@@ -104,7 +109,8 @@ function getReadmeContent() {
  */
 function getRecentCommits(currentCommit, limit = 5) {
   try {
-    const log = execSync(`git log --oneline -${limit} ${currentCommit}~1..HEAD~1 2>/dev/null || git log --oneline -${limit}`, {
+    const escapedCommit = escapeShellArg(currentCommit);
+    const log = execSync(`git log --oneline -${limit} ${escapedCommit}~1..HEAD~1 2>/dev/null || git log --oneline -${limit}`, {
       encoding: 'utf-8'
     }).trim();
 
@@ -119,8 +125,9 @@ function getRecentCommits(currentCommit, limit = 5) {
  */
 function getContextFiles(commitHash) {
   try {
+    const escapedHash = escapeShellArg(commitHash);
     // Get list of files changed in this commit
-    const changedFiles = execSync(`git diff-tree --no-commit-id --name-only -r ${commitHash}`, {
+    const changedFiles = execSync(`git diff-tree --no-commit-id --name-only -r ${escapedHash}`, {
       encoding: 'utf-8'
     }).trim().split('\n');
 
@@ -133,7 +140,7 @@ function getContextFiles(commitHash) {
 
       try {
         // Get the file content after the commit
-        const content = execSync(`git show ${commitHash}:${file}`, {
+        const content = execSync(`git show ${escapedHash}:${escapeShellArg(file)}`, {
           encoding: 'utf-8',
           maxBuffer: 1024 * 1024 // 1MB limit per file
         });
@@ -381,9 +388,12 @@ ${review}
     console.log('✅ Review completed successfully!');
     console.log(`📝 Review saved to: ${reviewFile}`);
 
-    // Show notification on macOS
+    // Show notification (platform-specific)
     try {
-      execSync(`osascript -e 'display notification "Review completed for ${repoName}" with title "Code Review Ready" sound name "Glass"'`);
+      if (os.platform() === 'darwin') {
+        execSync(`osascript -e 'display notification "Review completed for ${repoName}" with title "Code Review Ready" sound name "Glass"'`);
+      }
+      // Future: Add Windows/Linux notification support
     } catch (error) {
       // Notification failed, but that's okay
     }
@@ -426,6 +436,19 @@ async function main() {
   // Verify API key
   if (!ANTHROPIC_API_KEY) {
     console.error('Error: ANTHROPIC_API_KEY environment variable not set');
+    process.exit(1);
+  }
+
+  // Validate repository path
+  if (!fs.existsSync(repoPath)) {
+    console.error(`Error: Repository path does not exist: ${repoPath}`);
+    process.exit(1);
+  }
+
+  // Validate commit hash format (7-40 hex characters)
+  if (!/^[a-f0-9]{7,40}$/i.test(commitHash)) {
+    console.error(`Error: Invalid commit hash format: ${commitHash}`);
+    console.error('Commit hash must be 7-40 hexadecimal characters');
     process.exit(1);
   }
 

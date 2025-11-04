@@ -12,12 +12,22 @@ if [ -z "$REPO_PATH" ] || [ -z "$COMMIT_HASH" ]; then
     exit 0
 fi
 
-# Path to ClaudeReview directory (update this to your actual path)
-CLAUDE_REVIEW_DIR="$HOME/dev/test-code-review/ClaudeReview"
+# Path to ClaudeReview directory
+# Automatically searches common locations
+if [ -d "$HOME/.claude-review" ]; then
+    CLAUDE_REVIEW_DIR="$HOME/.claude-review"
+elif [ -d "$HOME/ClaudeReview" ]; then
+    CLAUDE_REVIEW_DIR="$HOME/ClaudeReview"
+elif [ -n "$CLAUDE_REVIEW_PATH" ]; then
+    CLAUDE_REVIEW_DIR="$CLAUDE_REVIEW_PATH"
+else
+    # Fallback: look for node_modules/@claude-review (if installed globally)
+    CLAUDE_REVIEW_DIR=""
+fi
 
 # Check if ClaudeReview exists
-if [ ! -d "$CLAUDE_REVIEW_DIR" ]; then
-    echo "Warning: ClaudeReview not found at $CLAUDE_REVIEW_DIR"
+if [ -z "$CLAUDE_REVIEW_DIR" ] || [ ! -d "$CLAUDE_REVIEW_DIR" ]; then
+    # Silently exit if not found (don't spam user with warnings)
     exit 0
 fi
 
